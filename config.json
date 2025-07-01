@@ -1,0 +1,11 @@
+{
+  "QUIZ_MCQ_COUNT": 3,
+  "QUIZ_FILL_IN_BLANK_COUNT": 2,
+  "llm": {
+    "provider": "openai",
+    "openai_model": "gpt-4o-mini",
+    "api_key_env_var": "OPENAI_API_KEY",
+    "local_model_name": "Qwen/Qwen2.5-0.5B",
+    "local_model_directory": "/data2/kenantang/.cache"
+  }
+}

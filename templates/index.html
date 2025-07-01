@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DIY-MKG</title>
+    <link href="https://unpkg.com/vis-network/styles/vis-network.min.css" rel="stylesheet" type="text/css" />
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; font-family: sans-serif; background-color: #f0f2f5; }
+        .view-container { width: 100%; height: 100%; }
+        #graph-container { display: flex; }
+        #app-container { display: flex; width: 100%; height: 100%; }
+        #visualization { flex-grow: 1; border-right: 1px solid #ddd; background-color: #fff; }
+        #controls { width: 350px; padding: 20px; box-sizing: border-box; background-color: #f9f9f9; overflow-y: auto; }
+        .control-group { margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+        .control-group:last-child { border-bottom: none; padding-bottom: 0; }
+        h3.collapsible-header { margin-top: 0; margin-bottom: 0; cursor: pointer; padding: 10px 0; position: relative; user-select: none; }
+        h3.collapsible-header::after { content: '−'; position: absolute; right: 10px; font-weight: bold; }
+        h3.collapsible-header.collapsed::after { content: '+'; }
+        .collapsible-content { padding-top: 10px; max-height: 1000px; overflow: hidden; transition: max-height 0.3s ease-in-out, padding 0.3s ease-in-out; }
+        .collapsible-content.collapsed { max-height: 0; padding-top: 0; }
+        
+        input, button, textarea, select { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; border-radius: 4px; border: 1px solid #ccc;}
+        label { font-weight: bold; font-size: 0.9em; display: block; margin-top: 10px; }
+        textarea { resize: vertical; min-height: 80px; font-family: monospace; }
+        button { cursor: pointer; background-color: #007bff; color: white; border: none; }
+        
+        .remove-btn { background-color:#dc3545; }
+        .remove-btn:hover { background-color:#c82333; }
+
+        #node-tag-highlighter-list, #edge-tag-highlighter-list, #suggestions-list { max-height: 150px; overflow-y: auto; background: #fff; border: 1px solid #ccc; padding: 10px; margin-top: 10px; }
+        #node-tag-highlighter-list label, #edge-tag-highlighter-list label, #suggestions-list label { display: block; margin-bottom: 5px; font-size: 0.9em; font-weight: normal; }
+        #node-tag-highlighter-list input, #edge-tag-highlighter-list input, #suggestions-list input { width: auto; margin-right: 5px; }
+        #llm-output { margin-top: 10px; background: #e9ecef; padding: 10px; border-radius: 4px; min-height: 100px; white-space: pre-wrap; word-wrap: break-word; }
+
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+        .modal-content { background-color: #fff; padding: 20px; border-radius: 5px; width: 500px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+
+        .vis-tooltip { background: #fff !important; border: 2px solid #007bff !important; border-radius: 5px !important; padding: 10px !important; box-shadow: 0 2px 10px rgba(0,0,0,0.2) !important; max-width: 400px; }
+        .tag { display: inline-block; background-color: #007bff; color: white; padding: 2px 8px; margin-right: 5px; margin-bottom: 5px; border-radius: 12px; font-size: 0.8em; }
+
+        #quiz-container { display: none; padding: 30px; max-width: 800px; height:auto; margin: 40px auto; background-color: #fff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .quiz-question { margin-bottom: 25px; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+        .quiz-question.correct { background-color: #e9f7ef; border-color: #1aae6f; }
+        .quiz-question.incorrect { background-color: #fce8e6; border-color: #d93025; }
+        .question-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .quiz-question p { font-size: 1.1em; font-weight: bold; margin: 0; }
+        .flag-question { font-weight: normal; font-size: 0.9em; cursor: pointer; }
+        .quiz-options label { display: block; padding: 10px; margin: 5px 0; border-radius: 4px; border: 1px solid #ccc; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="graph-container" class="view-container">
+        <div id="app-container">
+            <div id="visualization"></div>
+            <div id="controls">
+                <div class="control-group">
+                    <h3 class="collapsible-header">Snapshot Management</h3>
+                    <div class="collapsible-content">
+                        <button id="save-snapshot-btn">Save Current Snapshot</button>
+                        <hr style="margin: 15px 0;">
+                        <label for="snapshot-list">Load a Snapshot</label>
+                        <select id="snapshot-list"></select>
+                        <button id="load-snapshot-btn">Load Selected</button>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <h3 class="collapsible-header">Activities</h3>
+                    <div class="collapsible-content">
+                        <button id="start-quiz-btn" style="background-color: #fd7e14;">Test Your Knowledge</button>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <h3 class="collapsible-header">Explore Graph</h3>
+                    <div class="collapsible-content">
+                        <button id="overview-btn">Back to Full Cloud View</button>
+                        <label for="search-input">Search and Zoom</label>
+                        <input type="search" id="search-input" list="nodelist" placeholder="Type to search a word...">
+                        <datalist id="nodelist"></datalist>
+                        <button id="search-btn">Zoom to Word</button>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <h3 class="collapsible-header">Highlight by Word Tag</h3>
+                    <div class="collapsible-content">
+                        <div id="node-tag-highlighter-list">Loading tags...</div>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <h3 class="collapsible-header">Highlight by Edge Tag</h3>
+                    <div class="collapsible-content">
+                        <div id="edge-tag-highlighter-list">Loading tags...</div>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <h3 class="collapsible-header">Ask AI Assistant</h3>
+                    <div class="collapsible-content">
+                        <textarea id="llm-query-input" placeholder="Ask a question..."></textarea>
+                        <button id="llm-query-btn">Query</button>
+                        <pre id="llm-output">AI answer will appear here.</pre>
+                    </div>
+                </div>
+                <div class="control-group" id="node-details-panel">
+                    <h3 class="collapsible-header">Word Details <span id="node-details-title"></span></h3>
+                    <div class="collapsible-content">
+                        <label for="node-tags-input">Tags (comma-separated)</label>
+                        <input type="text" id="node-tags-input" placeholder="e.g. Food, Location">
+                        <label for="node-description-input">Description (Markdown supported)</label>
+                        <textarea id="node-description-input" placeholder="## Title..."></textarea>
+                        <button id="update-node-details-btn" style="margin-top: 10px;">Save Details & Snapshot</button>
+                    </div>
+                </div>
+                <div class="control-group" id="suggestions-panel">
+                    <h3 class="collapsible-header">AI Suggestions <span id="suggestions-title"></span></h3>
+                    <div class="collapsible-content">
+                        <button id="suggest-nodes-btn">Suggest New Words</button>
+                        <div id="suggestions-list"></div>
+                        <button id="add-selected-nodes-btn" style="margin-top: 10px; background-color: #17a2b8;">Add Selected Nodes</button>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <h3 class="collapsible-header">Create / Remove</h3>
+                    <div class="collapsible-content">
+                        <label for="node-id-input">Word</label>
+                        <input type="text" id="node-id-input" placeholder="New or existing word">
+                        <button id="add-node-btn">Add Word</button>
+                        <button id="remove-node-btn" class="remove-btn">Remove Word</button>
+                        <br><br>
+                        <label>Edge</label>
+                        <input type="text" id="edge-node1-input" placeholder="First Word" list="nodelist">
+                        <input type="text" id="edge-node2-input" placeholder="Second Word" list="nodelist">
+                        <button id="add-edge-btn">Create New Edge</button>
+                        <button id="remove-edge-btn" class="remove-btn">Remove Edge</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="quiz-container" class="view-container">
+        <h2 id="quiz-header">Knowledge Quiz</h2>
+        <div id="quiz-form"></div>
+        <div id="quiz-footer" style="margin-top: 20px;">
+            <button id="submit-quiz-btn">Submit Answers</button>
+            <button id="confirm-and-back-to-graph-btn" style="display: none; background-color: #28a745;">Confirm and Go Back</button>
+        </div>
+    </div>
+    
+    <div id="edge-editor-modal" class="modal">
+        <div class="modal-content">
+            <span style="float: right; cursor: pointer;" onclick="document.getElementById('edge-editor-modal').style.display='none'">×</span>
+            <h3 id="edge-editor-title">Edit Edge Details</h3>
+            <label for="edge-editor-label-input">Visual Label</label>
+            <input type="text" id="edge-editor-label-input" placeholder="e.g. Related">
+            <label for="edge-editor-tags-input">Hover Tags</label>
+            <input type="text" id="edge-editor-tags-input" placeholder="e.g. Cognates, Synonyms, Antonyms">
+            <label for="edge-editor-description-input">Hover Description (Markdown)</label>
+            <textarea id="edge-editor-description-input"></textarea>
+            <button id="save-edge-details-btn" style="margin-top: 10px;">Save Details & Snapshot</button>
+        </div>
+    </div>
+    
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <script src="/static/main.js"></script>
+</body>
+</html>
